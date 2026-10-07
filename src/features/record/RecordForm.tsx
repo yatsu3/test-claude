@@ -1,5 +1,5 @@
 // src/features/record/RecordForm.tsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import { db } from '../../db/client';
 import { upsertDailyRecord, type UpsertDailyRecordInput } from '../../db/recordRepository';
@@ -51,31 +51,45 @@ export function RecordForm({
   );
   const [saving, setSaving] = useState(false);
 
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const userEditedSleep = useRef(false);
+
   useEffect(() => {
-    if (initialRecord) {
+    if (initialRecord?.sleepMinutes != null) {
       return; // editing an existing record — don't overwrite with a fresh HealthKit lookup
     }
-    getLastNightSleepMinutes(new Date()).then((minutes) => {
-      if (minutes != null) {
+    let cancelled = false;
+    const [year, month, day] = date.split('-').map(Number);
+    getLastNightSleepMinutes(new Date(year, month - 1, day))
+      .catch(() => null)
+      .then((minutes) => {
+        if (cancelled || userEditedSleep.current || minutes == null) {
+          return;
+        }
         setSleepMinutesText(String(minutes));
         setSleepSource('healthkit');
-      }
-    });
+      });
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const canSave = condition != null && !saving;
+  const trimmedSleep = sleepMinutesText.trim();
+  const sleepInvalid = trimmedSleep !== '' && !/^\d+$/.test(trimmedSleep);
+  const canSave = condition != null && !saving && !sleepInvalid;
 
   const handleSave = async () => {
-    if (condition == null) {
+    if (condition == null || sleepInvalid || saving) {
       return;
     }
     setSaving(true);
+    setErrorMessage(null);
     try {
       const input: UpsertDailyRecordInput = {
         date,
-        sleepMinutes: sleepMinutesText.trim() === '' ? null : Number(sleepMinutesText),
-        sleepSource: sleepSource ?? (sleepMinutesText.trim() === '' ? null : 'manual'),
+        sleepMinutes: trimmedSleep === '' ? null : Number(trimmedSleep),
+        sleepSource: trimmedSleep === '' ? null : (sleepSource ?? 'manual'),
         condition,
         conditionNote: conditionNote.trim() === '' ? null : conditionNote,
         caffeine,
@@ -84,6 +98,8 @@ export function RecordForm({
       };
       const saved = await upsertDailyRecord(db, input);
       onSaved(saved);
+    } catch {
+      setErrorMessage('保存に失敗しました');
     } finally {
       setSaving(false);
     }
@@ -97,11 +113,16 @@ export function RecordForm({
         keyboardType="number-pad"
         value={sleepMinutesText}
         onChangeText={(text) => {
+          userEditedSleep.current = true;
           setSleepMinutesText(text);
           setSleepSource('manual');
         }}
         style={{ borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 8, marginBottom: 16 }}
       />
+
+      {sleepInvalid ? (
+        <Text style={{ color: '#c00', marginBottom: 8 }}>睡眠時間は0以上の整数で入力してください</Text>
+      ) : null}
 
       <Text style={{ marginBottom: 4 }}>コンディション</Text>
       <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
@@ -134,6 +155,8 @@ export function RecordForm({
       <SegmentedSelector label="カフェイン" options={ACTIVITY_OPTIONS} value={caffeine} onChange={setCaffeine} />
       <SegmentedSelector label="運動" options={ACTIVITY_OPTIONS} value={exercise} onChange={setExercise} />
       <SegmentedSelector label="アルコール" options={ALCOHOL_OPTIONS} value={alcohol} onChange={setAlcohol} />
+
+      {errorMessage ? <Text style={{ color: '#c00', marginBottom: 8 }}>{errorMessage}</Text> : null}
 
       <Pressable
         onPress={handleSave}
