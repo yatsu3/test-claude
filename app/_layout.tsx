@@ -24,5 +24,9 @@ export default function RootLayout() {
     );
   }
 
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="settings" options={{ headerShown: true, title: '設定' }} />
+    </Stack>
+  );
 }

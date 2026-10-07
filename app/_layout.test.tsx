@@ -10,7 +10,8 @@ jest.mock('expo-router', () => {
   const ReactActual = require('react');
   const { View } = require('react-native');
   const Passthrough = ({ children }: any) => children ?? ReactActual.createElement(View);
-  return { Stack: Passthrough, Tabs: Passthrough };
+  const Stack = Object.assign(() => ReactActual.createElement(View), { Screen: () => null });
+  return { Stack, Tabs: Passthrough };
 });
 
 describe('RootLayout', () => {
