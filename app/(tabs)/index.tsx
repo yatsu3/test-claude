@@ -1,6 +1,6 @@
 // app/(tabs)/index.tsx
 import React, { useEffect, useState } from 'react';
-import { ScrollView, Text } from 'react-native';
+import { Pressable, ScrollView, Text } from 'react-native';
 import { db } from '../../src/db/client';
 import { getRecordByDate } from '../../src/db/recordRepository';
 import { formatDateISO } from '../../src/lib/date';
@@ -12,9 +12,12 @@ export default function TodayScreen() {
   const [initialRecord, setInitialRecord] = useState<DailyRecord | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [loadFailed, setLoadFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
+    setLoaded(false);
+    setLoadFailed(false);
     getRecordByDate(db, today)
       .then((record) => {
         if (!cancelled) {
@@ -34,17 +37,25 @@ export default function TodayScreen() {
     return () => {
       cancelled = true;
     };
-  }, [today]);
+  }, [today, attempt]);
 
   if (!loaded) {
     return null;
   }
 
+  if (loadFailed) {
+    return (
+      <ScrollView>
+        <Text style={{ color: '#c00', padding: 16 }}>記録の読み込みに失敗しました</Text>
+        <Pressable accessibilityRole="button" onPress={() => setAttempt((n) => n + 1)} style={{ padding: 16 }}>
+          <Text>再読み込み</Text>
+        </Pressable>
+      </ScrollView>
+    );
+  }
+
   return (
     <ScrollView>
-      {loadFailed ? (
-        <Text style={{ color: '#c00', padding: 16 }}>記録の読み込みに失敗しました</Text>
-      ) : null}
       <RecordForm date={today} initialRecord={initialRecord} onSaved={setInitialRecord} />
     </ScrollView>
   );

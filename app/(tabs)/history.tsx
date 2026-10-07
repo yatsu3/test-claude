@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { db } from '../../src/db/client';
 import { listRecordsDesc } from '../../src/db/recordRepository';
 import type { DailyRecord } from '../../src/db/schema';
@@ -10,23 +10,26 @@ export default function HistoryScreen() {
   const [records, setRecords] = useState<DailyRecord[] | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    listRecordsDesc(db)
-      .then((rows) => {
-        if (!cancelled) {
-          setRecords(rows);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setLoadFailed(true);
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      setLoadFailed(false);
+      listRecordsDesc(db)
+        .then((rows) => {
+          if (!cancelled) {
+            setRecords(rows);
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setLoadFailed(true);
+          }
+        });
+      return () => {
+        cancelled = true;
+      };
+    }, [])
+  );
 
   if (loadFailed) {
     return (
@@ -55,7 +58,11 @@ export default function HistoryScreen() {
       renderItem={({ item }) => (
         <Pressable
           onPress={() => router.push(`/record-edit/${item.date}`)}
-          style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: '#eee' }}
+          style={{
+            padding: 16,
+            borderBottomWidth: 1,
+            borderBottomColor: '#eee',
+          }}
         >
           <Text>{item.date}</Text>
           <Text>コンディション: {item.condition}</Text>

@@ -9,7 +9,15 @@ jest.mock('../../src/db/client', () => ({ db: {} }));
 jest.mock('../../src/db/recordRepository', () => ({
   listRecordsDesc: (...args: unknown[]) => mockList(...args),
 }));
-jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
+jest.mock('expo-router', () => {
+  const ReactActual = require('react');
+  return {
+    useRouter: () => ({ push: mockPush }),
+    useFocusEffect: (cb: () => void | (() => void)) => {
+      ReactActual.useEffect(cb, [cb]);
+    },
+  };
+});
 
 describe('HistoryScreen', () => {
   afterEach(() => jest.clearAllMocks());
