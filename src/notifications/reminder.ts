@@ -3,6 +3,11 @@ import * as Notifications from 'expo-notifications';
 export const DEFAULT_REMINDER_HOUR = 21;
 export const DEFAULT_REMINDER_MINUTE = 0;
 
+export async function getNotificationPermissionGranted(): Promise<boolean> {
+  const current = await Notifications.getPermissionsAsync();
+  return current.status === 'granted';
+}
+
 export async function requestNotificationPermission(): Promise<boolean> {
   const current = await Notifications.getPermissionsAsync();
   if (current.status === 'granted') {
@@ -17,6 +22,9 @@ export async function scheduleDailyReminder(hour: number, minute: number): Promi
   if (!granted) {
     return null;
   }
+
+  // The app only ever has one reminder; clear any previous one so scheduling is idempotent.
+  await Notifications.cancelAllScheduledNotificationsAsync();
 
   return Notifications.scheduleNotificationAsync({
     content: {

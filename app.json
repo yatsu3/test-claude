@@ -25,7 +25,13 @@
     "plugins": [
       "expo-router",
       "expo-sqlite",
-      ["@kingstinct/react-native-healthkit", { "NSHealthShareUsageDescription": "睡眠時間の記録のために使用します" }]
+      [
+        "@kingstinct/react-native-healthkit",
+        {
+          "NSHealthShareUsageDescription": "睡眠時間の記録のために使用します"
+        }
+      ],
+      "@react-native-community/datetimepicker"
     ]
   }
 }

@@ -1,6 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import {
   requestNotificationPermission,
+  getNotificationPermissionGranted,
   scheduleDailyReminder,
   cancelDailyReminder,
   DEFAULT_REMINDER_HOUR,
@@ -12,6 +13,7 @@ jest.mock('expo-notifications', () => ({
   getPermissionsAsync: jest.fn(),
   scheduleNotificationAsync: jest.fn(),
   cancelScheduledNotificationAsync: jest.fn(),
+  cancelAllScheduledNotificationsAsync: jest.fn(),
   SchedulableTriggerInputTypes: { CALENDAR: 'calendar' },
 }));
 
@@ -60,6 +62,7 @@ describe('scheduleDailyReminder', () => {
     const id = await scheduleDailyReminder(21, 0);
 
     expect(id).toBe('reminder-id-1');
+    expect(Notifications.cancelAllScheduledNotificationsAsync).toHaveBeenCalled();
     expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledWith(
       expect.objectContaining({
         trigger: expect.objectContaining({ hour: 21, minute: 0, repeats: true }),
@@ -74,6 +77,7 @@ describe('scheduleDailyReminder', () => {
     const id = await scheduleDailyReminder(21, 0);
 
     expect(id).toBeNull();
+    expect(Notifications.cancelAllScheduledNotificationsAsync).not.toHaveBeenCalled();
     expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
   });
 });
@@ -82,5 +86,15 @@ describe('cancelDailyReminder', () => {
   it('cancels the scheduled notification by id', async () => {
     await cancelDailyReminder('reminder-id-1');
     expect(Notifications.cancelScheduledNotificationAsync).toHaveBeenCalledWith('reminder-id-1');
+  });
+});
+
+describe('getNotificationPermissionGranted', () => {
+  it('reflects the current permission status without prompting', async () => {
+    (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({ status: 'denied' });
+    expect(await getNotificationPermissionGranted()).toBe(false);
+    (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({ status: 'granted' });
+    expect(await getNotificationPermissionGranted()).toBe(true);
+    expect(Notifications.requestPermissionsAsync).not.toHaveBeenCalled();
   });
 });

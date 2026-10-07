@@ -5,6 +5,7 @@
   "dependencies": {
     "@kingstinct/react-native-healthkit": "^16.0.0",
     "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-native-community/datetimepicker": "9.1.0",
     "@shopify/react-native-skia": "^2.14.0",
     "drizzle-orm": "^0.45.3",
     "expo": "~57.0.27",
