@@ -1,9 +1,11 @@
 import * as Notifications from 'expo-notifications';
 import {
   requestNotificationPermission,
-  getNotificationPermissionGranted,
+  getNotificationPermissionDenied,
   scheduleDailyReminder,
   cancelDailyReminder,
+  cancelAllReminders,
+  configureNotificationHandler,
   DEFAULT_REMINDER_HOUR,
   DEFAULT_REMINDER_MINUTE,
 } from './reminder';
@@ -14,6 +16,7 @@ jest.mock('expo-notifications', () => ({
   scheduleNotificationAsync: jest.fn(),
   cancelScheduledNotificationAsync: jest.fn(),
   cancelAllScheduledNotificationsAsync: jest.fn(),
+  setNotificationHandler: jest.fn(),
   SchedulableTriggerInputTypes: { CALENDAR: 'calendar' },
 }));
 
@@ -89,12 +92,36 @@ describe('cancelDailyReminder', () => {
   });
 });
 
-describe('getNotificationPermissionGranted', () => {
-  it('reflects the current permission status without prompting', async () => {
+describe('cancelAllReminders', () => {
+  it('cancels every scheduled notification', async () => {
+    await cancelAllReminders();
+    expect(Notifications.cancelAllScheduledNotificationsAsync).toHaveBeenCalled();
+  });
+});
+
+describe('getNotificationPermissionDenied', () => {
+  it('is true only when permission is explicitly denied, without prompting', async () => {
     (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({ status: 'denied' });
-    expect(await getNotificationPermissionGranted()).toBe(false);
+    expect(await getNotificationPermissionDenied()).toBe(true);
+    (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({ status: 'undetermined' });
+    expect(await getNotificationPermissionDenied()).toBe(false);
     (Notifications.getPermissionsAsync as jest.Mock).mockResolvedValue({ status: 'granted' });
-    expect(await getNotificationPermissionGranted()).toBe(true);
+    expect(await getNotificationPermissionDenied()).toBe(false);
     expect(Notifications.requestPermissionsAsync).not.toHaveBeenCalled();
+  });
+});
+
+describe('configureNotificationHandler', () => {
+  it('registers a handler once that shows banners/list and plays sound in the foreground', async () => {
+    configureNotificationHandler();
+    configureNotificationHandler();
+    expect(Notifications.setNotificationHandler).toHaveBeenCalledTimes(1);
+    const handler = (Notifications.setNotificationHandler as jest.Mock).mock.calls[0][0];
+    await expect(handler.handleNotification()).resolves.toEqual({
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+    });
   });
 });

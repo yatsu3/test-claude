@@ -3,9 +3,28 @@ import * as Notifications from 'expo-notifications';
 export const DEFAULT_REMINDER_HOUR = 21;
 export const DEFAULT_REMINDER_MINUTE = 0;
 
-export async function getNotificationPermissionGranted(): Promise<boolean> {
+let handlerConfigured = false;
+
+// Lets reminders show as a banner (and in Notification Center) while the app is in the foreground.
+export function configureNotificationHandler(): void {
+  if (handlerConfigured) {
+    return;
+  }
+  handlerConfigured = true;
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+    }),
+  });
+}
+
+// True only when the user has explicitly denied notifications (not when still undetermined).
+export async function getNotificationPermissionDenied(): Promise<boolean> {
   const current = await Notifications.getPermissionsAsync();
-  return current.status === 'granted';
+  return current.status === 'denied';
 }
 
 export async function requestNotificationPermission(): Promise<boolean> {
@@ -42,4 +61,10 @@ export async function scheduleDailyReminder(hour: number, minute: number): Promi
 
 export async function cancelDailyReminder(identifier: string): Promise<void> {
   await Notifications.cancelScheduledNotificationAsync(identifier);
+}
+
+// The app only ever owns one reminder, so disabling clears every scheduled notification
+// (covers any stray duplicate left by an interrupted reschedule).
+export async function cancelAllReminders(): Promise<void> {
+  await Notifications.cancelAllScheduledNotificationsAsync();
 }

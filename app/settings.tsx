@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import {
   scheduleDailyReminder,
   cancelDailyReminder,
-  getNotificationPermissionGranted,
+  cancelAllReminders,
+  getNotificationPermissionDenied,
   DEFAULT_REMINDER_HOUR,
   DEFAULT_REMINDER_MINUTE,
 } from '../src/notifications/reminder';
@@ -17,7 +18,17 @@ function formatTime(hour: number, minute: number): string {
 export default function SettingsScreen() {
   const [hour, setHour] = useState(DEFAULT_REMINDER_HOUR);
   const [minute, setMinute] = useState(DEFAULT_REMINDER_MINUTE);
-  const [notificationId, setNotificationId] = useState<string | null>(null);
+  const [notificationId, setNotificationIdState] = useState<string | null>(null);
+  // Mirrors notificationId so serialized time changes always see the latest value.
+  const notificationIdRef = useRef<string | null>(null);
+  const setNotificationId = (id: string | null) => {
+    notificationIdRef.current = id;
+    setNotificationIdState(id);
+  };
+  // Picker onChange can fire rapidly; only one reschedule runs at a time and the
+  // most recent requested time is applied once the in-flight one finishes.
+  const timeChangeInFlight = useRef(false);
+  const pendingTime = useRef<Date | null>(null);
   const [permissionDenied, setPermissionDenied] = useState(false);
   const [permissionOff, setPermissionOff] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,10 +54,10 @@ export default function SettingsScreen() {
           setLoaded(true);
         }
       });
-    getNotificationPermissionGranted()
-      .then((granted) => {
+    getNotificationPermissionDenied()
+      .then((denied) => {
         if (!cancelled) {
-          setPermissionOff(!granted);
+          setPermissionOff(denied);
         }
       })
       .catch(() => {});
@@ -91,9 +102,8 @@ export default function SettingsScreen() {
   const handleDisable = async () => {
     setError(null);
     try {
-      if (notificationId) {
-        await cancelDailyReminder(notificationId);
-      }
+      // Clear every scheduled notification, not just the stored id, so no stray duplicate survives.
+      await cancelAllReminders();
       await saveReminderPreference({ hour, minute, notificationId: null });
       setNotificationId(null);
     } catch {
@@ -101,15 +111,12 @@ export default function SettingsScreen() {
     }
   };
 
-  const handleTimeChange = async (date: Date | undefined) => {
-    if (!date) {
-      return;
-    }
+  const applyTimeChange = async (date: Date) => {
     const h = date.getHours();
     const m = date.getMinutes();
     setError(null);
     try {
-      if (notificationId) {
+      if (notificationIdRef.current) {
         await scheduleAndPersist(h, m);
       } else {
         await saveReminderPreference({ hour: h, minute: m, notificationId: null });
@@ -118,6 +125,26 @@ export default function SettingsScreen() {
       }
     } catch {
       setError('リマインド時刻の変更に失敗しました');
+    }
+  };
+
+  const handleTimeChange = async (date: Date | undefined) => {
+    if (!date) {
+      return;
+    }
+    pendingTime.current = date;
+    if (timeChangeInFlight.current) {
+      return;
+    }
+    timeChangeInFlight.current = true;
+    try {
+      while (pendingTime.current) {
+        const next = pendingTime.current;
+        pendingTime.current = null;
+        await applyTimeChange(next);
+      }
+    } finally {
+      timeChangeInFlight.current = false;
     }
   };
 

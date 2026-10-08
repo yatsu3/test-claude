@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "app",
+    "name": "睡眠コンディション記録",
     "slug": "app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -28,7 +28,8 @@
       [
         "@kingstinct/react-native-healthkit",
         {
-          "NSHealthShareUsageDescription": "睡眠時間の記録のために使用します"
+          "NSHealthShareUsageDescription": "睡眠時間の記録のために使用します",
+          "NSHealthUpdateUsageDescription": false
         }
       ],
       "@react-native-community/datetimepicker"
