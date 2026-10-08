@@ -177,6 +177,8 @@ export default function SettingsScreen() {
         });
         setNotificationId(null);
       } catch {
+        // Still enabled: keep the desired state consistent with the UI.
+        desiredEnabled.current = notificationIdRef.current !== null;
         setError('リマインドの解除に失敗しました');
       }
     });

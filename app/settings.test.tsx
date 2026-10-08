@@ -265,6 +265,24 @@ describe('SettingsScreen', () => {
       onChange('active');
     });
     await waitFor(() => expect(screen.queryByText('通知がオフになっています')).toBeNull());
-    addListener.mockRestore();
+  });
+
+  it('stays enabled and still reschedules on a later time change when disabling fails', async () => {
+    mockGetPref.mockResolvedValue({ hour: 21, minute: 0, notificationId: 'notif-1' });
+    mockCancelAll.mockRejectedValueOnce(new Error('boom'));
+    mockSchedule.mockResolvedValue('notif-2');
+
+    await render(<SettingsScreen />);
+    await fireEvent.press(await screen.findByText('リマインドを無効にする'));
+    await waitFor(() => expect(screen.getByText('リマインドの解除に失敗しました')).toBeTruthy());
+    expect(screen.getByText('リマインドを無効にする')).toBeTruthy();
+
+    const d = new Date();
+    d.setHours(8, 15, 0, 0);
+    await act(async () => {
+      mockPickerOnChange?.({}, d);
+    });
+    await waitFor(() => expect(mockSchedule).toHaveBeenCalledWith(8, 15));
+    expect(mockSavePref).not.toHaveBeenCalledWith({ hour: 8, minute: 15, notificationId: null });
   });
 });
