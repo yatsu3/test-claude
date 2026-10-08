@@ -88,6 +88,9 @@ export default function TodayScreen() {
   );
 
   const handleSaved = (record: DailyRecord) => {
+    // Drop any reload still in flight: it read the record before this save, and applying
+    // it would remount the form with pre-save values.
+    requestId.current++;
     setInitialRecord(record);
     // The form already shows what was saved: record it as known without remounting,
     // so a later reload of this same record leaves the form alone.

@@ -1,5 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { AppState, Pressable, Text, View } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import {
   scheduleDailyReminder,
@@ -16,8 +17,19 @@ function formatTime(hour: number, minute: number): string {
 }
 
 export default function SettingsScreen() {
-  const [hour, setHour] = useState(DEFAULT_REMINDER_HOUR);
-  const [minute, setMinute] = useState(DEFAULT_REMINDER_MINUTE);
+  const [hour, setHourState] = useState(DEFAULT_REMINDER_HOUR);
+  const [minute, setMinuteState] = useState(DEFAULT_REMINDER_MINUTE);
+  // Mirror hour/minute so queued operations use the latest applied time.
+  const hourRef = useRef(DEFAULT_REMINDER_HOUR);
+  const minuteRef = useRef(DEFAULT_REMINDER_MINUTE);
+  const setHour = (h: number) => {
+    hourRef.current = h;
+    setHourState(h);
+  };
+  const setMinute = (m: number) => {
+    minuteRef.current = m;
+    setMinuteState(m);
+  };
   const [notificationId, setNotificationIdState] = useState<string | null>(null);
   // Mirrors notificationId so serialized time changes always see the latest value.
   const notificationIdRef = useRef<string | null>(null);
@@ -25,9 +37,24 @@ export default function SettingsScreen() {
     notificationIdRef.current = id;
     setNotificationIdState(id);
   };
-  // Picker onChange can fire rapidly; only one reschedule runs at a time and the
-  // most recent requested time is applied once the in-flight one finishes.
-  const timeChangeInFlight = useRef(false);
+  // Enable, disable and time changes all run through one queue so they never interleave.
+  // An operation starts immediately when the queue is idle. Operations never reject.
+  const queueTail = useRef<Promise<void> | null>(null);
+  const enqueue = (op: () => Promise<void>) => {
+    const prev = queueTail.current;
+    const run = prev ? prev.then(op) : op();
+    const tail: Promise<void> = run.finally(() => {
+      if (queueTail.current === tail) {
+        queueTail.current = null;
+      }
+    });
+    queueTail.current = tail;
+  };
+  // Whether the user currently wants the reminder on (set when they tap, before the queued
+  // operation runs). Queued time changes after a disable must not reschedule.
+  const desiredEnabled = useRef(false);
+  const toggleSeq = useRef(0);
+  // Picker onChange can fire rapidly; the most recent requested time wins.
   const pendingTime = useRef<Date | null>(null);
   const [permissionDenied, setPermissionDenied] = useState(false);
   const [permissionOff, setPermissionOff] = useState(false);
@@ -42,6 +69,7 @@ export default function SettingsScreen() {
           setHour(pref.hour);
           setMinute(pref.minute);
           setNotificationId(pref.notificationId);
+          desiredEnabled.current = pref.notificationId !== null;
         }
       })
       .catch(() => {
@@ -54,6 +82,15 @@ export default function SettingsScreen() {
           setLoaded(true);
         }
       });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Re-checks OS notification permission on mount/focus and when the app returns from
+  // iOS Settings.
+  const checkPermission = useCallback(() => {
+    let cancelled = false;
     getNotificationPermissionDenied()
       .then((denied) => {
         if (!cancelled) {
@@ -65,6 +102,22 @@ export default function SettingsScreen() {
       cancelled = true;
     };
   }, []);
+
+  useFocusEffect(checkPermission);
+
+  useEffect(() => {
+    let cancelPrevious: (() => void) | null = null;
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        cancelPrevious?.();
+        cancelPrevious = checkPermission();
+      }
+    });
+    return () => {
+      cancelPrevious?.();
+      subscription.remove();
+    };
+  }, [checkPermission]);
 
   // Schedules at the given time, persists first, then updates state.
   // If persisting fails, the just-scheduled notification is cancelled.
@@ -90,25 +143,43 @@ export default function SettingsScreen() {
     setNotificationId(id);
   };
 
-  const handleEnable = async () => {
+  const handleEnable = () => {
     setError(null);
-    try {
-      await scheduleAndPersist(hour, minute);
-    } catch {
-      setError('リマインドの設定に失敗しました');
-    }
+    desiredEnabled.current = true;
+    const seq = ++toggleSeq.current;
+    enqueue(async () => {
+      if (!desiredEnabled.current) {
+        return; // disabled again before this ran
+      }
+      try {
+        await scheduleAndPersist(hourRef.current, minuteRef.current);
+      } catch {
+        setError('リマインドの設定に失敗しました');
+      }
+      if (seq === toggleSeq.current) {
+        desiredEnabled.current = notificationIdRef.current !== null;
+      }
+    });
   };
 
-  const handleDisable = async () => {
+  const handleDisable = () => {
     setError(null);
-    try {
-      // Clear every scheduled notification, not just the stored id, so no stray duplicate survives.
-      await cancelAllReminders();
-      await saveReminderPreference({ hour, minute, notificationId: null });
-      setNotificationId(null);
-    } catch {
-      setError('リマインドの解除に失敗しました');
-    }
+    desiredEnabled.current = false;
+    toggleSeq.current++;
+    enqueue(async () => {
+      try {
+        // Clear every scheduled notification, not just the stored id, so no stray duplicate survives.
+        await cancelAllReminders();
+        await saveReminderPreference({
+          hour: hourRef.current,
+          minute: minuteRef.current,
+          notificationId: null,
+        });
+        setNotificationId(null);
+      } catch {
+        setError('リマインドの解除に失敗しました');
+      }
+    });
   };
 
   const applyTimeChange = async (date: Date) => {
@@ -116,7 +187,7 @@ export default function SettingsScreen() {
     const m = date.getMinutes();
     setError(null);
     try {
-      if (notificationIdRef.current) {
+      if (desiredEnabled.current && notificationIdRef.current) {
         await scheduleAndPersist(h, m);
       } else {
         await saveReminderPreference({ hour: h, minute: m, notificationId: null });
@@ -128,24 +199,18 @@ export default function SettingsScreen() {
     }
   };
 
-  const handleTimeChange = async (date: Date | undefined) => {
+  const handleTimeChange = (date: Date | undefined) => {
     if (!date) {
       return;
     }
     pendingTime.current = date;
-    if (timeChangeInFlight.current) {
-      return;
-    }
-    timeChangeInFlight.current = true;
-    try {
-      while (pendingTime.current) {
-        const next = pendingTime.current;
-        pendingTime.current = null;
-        await applyTimeChange(next);
+    enqueue(async () => {
+      if (pendingTime.current !== date) {
+        return; // superseded by a newer change
       }
-    } finally {
-      timeChangeInFlight.current = false;
-    }
+      pendingTime.current = null;
+      await applyTimeChange(date);
+    });
   };
 
   if (!loaded) {
@@ -168,7 +233,7 @@ export default function SettingsScreen() {
         value={pickerValue}
         mode="time"
         onChange={(_event, date) => {
-          void handleTimeChange(date);
+          handleTimeChange(date);
         }}
       />
       {notificationId ? (

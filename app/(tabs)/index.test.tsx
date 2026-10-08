@@ -4,6 +4,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 import TodayScreen from './index';
 
 const mockGet = jest.fn();
+let mockMounts = 0;
 let mockFocus: (() => void | (() => void)) | undefined;
 
 jest.mock('../../src/db/client', () => ({ db: {} }));
@@ -26,6 +27,9 @@ jest.mock('../../src/features/record/RecordForm', () => {
   const { Text, Pressable } = require('react-native');
   return {
     RecordForm: ({ date, initialRecord, onSaved }: any) => {
+      ReactActual.useEffect(() => {
+        mockMounts++;
+      }, []);
       const [condition] = ReactActual.useState(initialRecord ? initialRecord.condition : 'none');
       return (
         <>
@@ -36,6 +40,11 @@ jest.mock('../../src/features/record/RecordForm', () => {
           >
             <Text>mock-save</Text>
           </Pressable>
+          <Pressable
+            onPress={() => onSaved({ date, condition: 6, updatedAt: 'saved-at-2' })}
+          >
+            <Text>mock-save-2</Text>
+          </Pressable>
         </>
       );
     },
@@ -43,6 +52,9 @@ jest.mock('../../src/features/record/RecordForm', () => {
 });
 
 describe('TodayScreen', () => {
+  beforeEach(() => {
+    mockMounts = 0;
+  });
   afterEach(() => {
     jest.useRealTimers();
     jest.restoreAllMocks();
@@ -142,5 +154,26 @@ describe('TodayScreen', () => {
     const timerId = setTimeoutSpy.mock.results[savedTimerCall].value;
     await unmount();
     expect(clearTimeoutSpy).toHaveBeenCalledWith(timerId);
+  });
+
+  it('ignores a stale in-flight reload that resolves after the form was saved', async () => {
+    mockGet.mockResolvedValueOnce({ id: 1, condition: 3, updatedAt: 't1' });
+    await render(<TodayScreen />);
+    await screen.findByText('form:3');
+    expect(mockMounts).toBe(1);
+
+    let resolveStale: (r: unknown) => void = () => {};
+    mockGet.mockImplementationOnce(() => new Promise((r) => { resolveStale = r; }));
+    await fireEvent.press(screen.getByText('mock-save'));
+    await act(async () => {
+      mockFocus?.();
+    });
+    await fireEvent.press(screen.getByText('mock-save-2'));
+    await act(async () => {
+      resolveStale({ id: 1, condition: 5, updatedAt: 'saved-at' });
+    });
+
+    expect(mockMounts).toBe(1);
+    expect(screen.getByText('form:3')).toBeTruthy();
   });
 });

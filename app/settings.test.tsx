@@ -1,4 +1,5 @@
 import React from 'react';
+import { AppState } from 'react-native';
 import { act, render, screen, fireEvent, waitFor } from '@testing-library/react-native';
 import SettingsScreen from './settings';
 
@@ -18,6 +19,14 @@ jest.mock('@react-native-community/datetimepicker', () => ({
   },
 }));
 
+jest.mock('expo-router', () => {
+  const ReactActual = require('react');
+  return {
+    useFocusEffect: (cb: () => void | (() => void)) => {
+      ReactActual.useEffect(cb, [cb]);
+    },
+  };
+});
 jest.mock('../src/settings/preferences', () => ({
   getReminderPreference: (...args: unknown[]) => mockGetPref(...args),
   saveReminderPreference: (...args: unknown[]) => mockSavePref(...args),
@@ -202,5 +211,60 @@ describe('SettingsScreen', () => {
     expect(mockSchedule).toHaveBeenNthCalledWith(1, 7, 0);
     expect(mockSchedule).toHaveBeenNthCalledWith(2, 7, 2);
     expect(mockSavePref).toHaveBeenLastCalledWith({ hour: 7, minute: 2, notificationId: 'notif-last' });
+  });
+
+  it('does not re-enable the reminder when disabled while a reschedule is in flight', async () => {
+    mockGetPref.mockResolvedValue({ hour: 21, minute: 0, notificationId: 'notif-1' });
+    let resolveSchedule: (id: string) => void = () => {};
+    mockSchedule.mockImplementationOnce(() => new Promise<string>((r) => { resolveSchedule = r; }));
+    const order: string[] = [];
+    mockCancelAll.mockImplementation(async () => { order.push('cancelAll'); });
+    mockSchedule.mockImplementation(async () => { order.push('schedule'); return 'late'; });
+    mockSchedule.mockImplementationOnce(
+      () => new Promise<string>((r) => { order.push('schedule'); resolveSchedule = r; })
+    );
+    mockSavePref.mockImplementation(async (p: { notificationId: string | null }) => {
+      order.push(`save:${p.notificationId}`);
+    });
+
+    await render(<SettingsScreen />);
+    await screen.findByText('リマインドを無効にする');
+    const at = (h: number, m: number) => {
+      const d = new Date();
+      d.setHours(h, m, 0, 0);
+      return d;
+    };
+    await act(async () => {
+      mockPickerOnChange?.({}, at(7, 0)); // in flight
+      mockPickerOnChange?.({}, at(7, 1)); // queued
+    });
+    await fireEvent.press(screen.getByText('リマインドを無効にする'));
+    await act(async () => {
+      resolveSchedule('notif-first');
+    });
+
+    await waitFor(() => expect(screen.getByText('リマインドを有効にする')).toBeTruthy());
+    await act(async () => {});
+    const cancelIdx = order.lastIndexOf('cancelAll');
+    expect(cancelIdx).toBeGreaterThanOrEqual(0);
+    expect(order.slice(cancelIdx + 1).filter((o) => o === 'schedule' || o === 'save:late' || o === 'save:notif-first')).toEqual([]);
+    expect(order[order.length - 1]).toBe('save:null');
+    expect(screen.queryByText(/にリマインドします/)).toBeNull();
+  });
+
+  it('refreshes the permission banner when the app becomes active again', async () => {
+    mockGetPref.mockResolvedValue(null);
+    mockPermission.mockResolvedValueOnce(true).mockResolvedValue(false);
+    const addListener = jest.spyOn(AppState, 'addEventListener');
+
+    await render(<SettingsScreen />);
+    expect(await screen.findByText('通知がオフになっています')).toBeTruthy();
+
+    const onChange = addListener.mock.calls[0][1] as (state: string) => void;
+    await act(async () => {
+      onChange('active');
+    });
+    await waitFor(() => expect(screen.queryByText('通知がオフになっています')).toBeNull());
+    addListener.mockRestore();
   });
 });
