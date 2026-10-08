@@ -1,14 +1,14 @@
 import React from 'react';
 import { AppState } from 'react-native';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import TodayScreen from './index';
+import TodayScreen from '../../../app/(tabs)/index';
 
 const mockGet = jest.fn();
 let mockMounts = 0;
 let mockFocus: (() => void | (() => void)) | undefined;
 
-jest.mock('../../src/db/client', () => ({ db: {} }));
-jest.mock('../../src/db/recordRepository', () => ({
+jest.mock('../../../src/db/client', () => ({ db: {} }));
+jest.mock('../../../src/db/recordRepository', () => ({
   getRecordByDate: (...args: unknown[]) => mockGet(...args),
 }));
 jest.mock('expo-router', () => {
@@ -22,7 +22,7 @@ jest.mock('expo-router', () => {
 });
 // The mock form copies initialRecord into state on mount (like the real form),
 // so its text only changes when TodayScreen remounts it.
-jest.mock('../../src/features/record/RecordForm', () => {
+jest.mock('../../../src/features/record/RecordForm', () => {
   const ReactActual = require('react');
   const { Text, Pressable } = require('react-native');
   return {

@@ -1,7 +1,7 @@
 import React from 'react';
 import { AppState } from 'react-native';
 import { act, render, screen, fireEvent, waitFor } from '@testing-library/react-native';
-import SettingsScreen from './settings';
+import SettingsScreen from '../../app/settings';
 
 const mockGetPref = jest.fn();
 const mockSavePref = jest.fn();
@@ -27,11 +27,11 @@ jest.mock('expo-router', () => {
     },
   };
 });
-jest.mock('../src/settings/preferences', () => ({
+jest.mock('../../src/settings/preferences', () => ({
   getReminderPreference: (...args: unknown[]) => mockGetPref(...args),
   saveReminderPreference: (...args: unknown[]) => mockSavePref(...args),
 }));
-jest.mock('../src/notifications/reminder', () => ({
+jest.mock('../../src/notifications/reminder', () => ({
   scheduleDailyReminder: (...args: unknown[]) => mockSchedule(...args),
   cancelDailyReminder: (...args: unknown[]) => mockCancel(...args),
   cancelAllReminders: (...args: unknown[]) => mockCancelAll(...args),

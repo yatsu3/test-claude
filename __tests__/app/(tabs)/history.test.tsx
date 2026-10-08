@@ -1,12 +1,12 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import HistoryScreen from './history';
+import HistoryScreen from '../../../app/(tabs)/history';
 
 const mockList = jest.fn();
 const mockPush = jest.fn();
 
-jest.mock('../../src/db/client', () => ({ db: {} }));
-jest.mock('../../src/db/recordRepository', () => ({
+jest.mock('../../../src/db/client', () => ({ db: {} }));
+jest.mock('../../../src/db/recordRepository', () => ({
   listRecordsDesc: (...args: unknown[]) => mockList(...args),
 }));
 jest.mock('expo-router', () => {

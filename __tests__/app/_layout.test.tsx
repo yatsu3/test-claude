@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react-native';
 import * as Notifications from 'expo-notifications';
-import RootLayout from './_layout';
+import RootLayout from '../../app/_layout';
 
 const mockPush = jest.fn();
 const mockRemove = jest.fn();
@@ -9,7 +9,7 @@ const mockScreens: { name: string; options: Record<string, unknown> }[] = [];
 jest.mock('expo-notifications', () => ({
   addNotificationResponseReceivedListener: jest.fn(),
 }));
-jest.mock('../src/notifications/reminder', () => ({
+jest.mock('../../src/notifications/reminder', () => ({
   configureNotificationHandler: jest.fn(),
 }));
 jest.mock('expo-sqlite', () => ({ openDatabaseSync: jest.fn(() => ({})) }));
@@ -47,9 +47,9 @@ describe('RootLayout', () => {
     // Re-import in an isolated registry so the import-time call is observable regardless of test order.
     let configure: jest.Mock | undefined;
     jest.isolateModules(() => {
-      configure = require('../src/notifications/reminder').configureNotificationHandler;
+      configure = require('../../src/notifications/reminder').configureNotificationHandler;
       configure?.mockClear();
-      require('./_layout');
+      require('../../app/_layout');
     });
     expect(configure).toHaveBeenCalledTimes(1);
   });

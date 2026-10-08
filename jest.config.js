@@ -2,6 +2,8 @@ const jestExpoPreset = require('jest-expo/jest-preset');
 
 module.exports = {
   ...jestExpoPreset,
+  // First test in a file pays for transforming react-native on a cold cache.
+  testTimeout: 15000,
   transform: {
     ...jestExpoPreset.transform,
     '\\.sql$': '<rootDir>/jest.sqlTransformer.js',

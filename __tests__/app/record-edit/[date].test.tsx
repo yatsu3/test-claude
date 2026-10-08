@@ -1,12 +1,12 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import RecordEditScreen from './[date]';
+import RecordEditScreen from '../../../app/record-edit/[date]';
 
 const mockGet = jest.fn();
 const mockBack = jest.fn();
 
-jest.mock('../../src/db/client', () => ({ db: {} }));
-jest.mock('../../src/db/recordRepository', () => ({
+jest.mock('../../../src/db/client', () => ({ db: {} }));
+jest.mock('../../../src/db/recordRepository', () => ({
   getRecordByDate: (...args: unknown[]) => mockGet(...args),
 }));
 jest.mock('expo-router', () => {
@@ -17,7 +17,7 @@ jest.mock('expo-router', () => {
     Stack: { Screen: ({ options }: any) => <Text>{`title:${options?.title}`}</Text> },
   };
 });
-jest.mock('../../src/features/record/RecordForm', () => {
+jest.mock('../../../src/features/record/RecordForm', () => {
   const { Text, Pressable } = require('react-native');
   return {
     RecordForm: ({ date, initialRecord, onSaved }: any) => (

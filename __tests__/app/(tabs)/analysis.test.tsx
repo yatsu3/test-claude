@@ -1,13 +1,13 @@
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react-native';
-import AnalysisScreen from './analysis';
+import AnalysisScreen from '../../../app/(tabs)/analysis';
 
 const mockPoints = jest.fn();
 const mockAverages = jest.fn();
 const mockChartProps: any[] = [];
 
-jest.mock('../../src/db/client', () => ({ db: {} }));
-jest.mock('../../src/db/recordRepository', () => ({
+jest.mock('../../../src/db/client', () => ({ db: {} }));
+jest.mock('../../../src/db/recordRepository', () => ({
   getSleepConditionPoints: (...args: unknown[]) => mockPoints(...args),
   getConditionAverageBy: (...args: unknown[]) => mockAverages(...args),
 }));
