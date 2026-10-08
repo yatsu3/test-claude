@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "睡眠コンディション記録",
-    "slug": "app",
+    "slug": "sleep-condition-tracker",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
