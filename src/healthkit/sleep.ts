@@ -13,6 +13,34 @@ type SleepCategorySample = {
   readonly endDate: Date;
 };
 
+// Total length of the union of the samples' time ranges. Samples from multiple sources
+// (e.g. iPhone + Watch) or asleepUnspecified overlapping core/deep/REM must not be double-counted.
+function mergedDurationMs(samples: readonly SleepCategorySample[]): number {
+  const intervals = samples
+    .map((s) => [s.startDate.getTime(), s.endDate.getTime()] as const)
+    .filter(([start, end]) => end > start)
+    .sort((a, b) => a[0] - b[0]);
+
+  let total = 0;
+  let curStart: number | null = null;
+  let curEnd = 0;
+  for (const [start, end] of intervals) {
+    if (curStart === null || start > curEnd) {
+      if (curStart !== null) {
+        total += curEnd - curStart;
+      }
+      curStart = start;
+      curEnd = end;
+    } else if (end > curEnd) {
+      curEnd = end;
+    }
+  }
+  if (curStart !== null) {
+    total += curEnd - curStart;
+  }
+  return total;
+}
+
 export async function getLastNightSleepMinutes(forDate: Date): Promise<number | null> {
   try {
     const authorized = await requestAuthorization({ toRead: [SLEEP_ANALYSIS_IDENTIFIER] });
@@ -34,9 +62,7 @@ export async function getLastNightSleepMinutes(forDate: Date): Promise<number | 
       return null;
     }
 
-    const totalMs = samples
-      .filter((sample) => ASLEEP_VALUES.has(sample.value))
-      .reduce((sum, sample) => sum + (sample.endDate.getTime() - sample.startDate.getTime()), 0);
+    const totalMs = mergedDurationMs(samples.filter((sample) => ASLEEP_VALUES.has(sample.value)));
 
     if (totalMs === 0) {
       return null;

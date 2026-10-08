@@ -1,9 +1,14 @@
 import { and, desc, eq, isNotNull, ne } from 'drizzle-orm';
+import type { BaseSQLiteDatabase } from 'drizzle-orm/sqlite-core';
 import { dailyRecords, type DailyRecord, type NewDailyRecord } from './schema';
+
+// Structural DB type satisfied by both the expo-sqlite drizzle instance (app)
+// and the better-sqlite3 drizzle instance (tests). Both are synchronous drivers.
+export type RecordDb = BaseSQLiteDatabase<'sync', unknown>;
 
 export type UpsertDailyRecordInput = Omit<NewDailyRecord, 'id' | 'createdAt' | 'updatedAt'>;
 
-export async function upsertDailyRecord(db: any, input: UpsertDailyRecordInput): Promise<DailyRecord> {
+export async function upsertDailyRecord(db: RecordDb, input: UpsertDailyRecordInput): Promise<DailyRecord> {
   const now = new Date().toISOString();
   const existing = await getRecordByDate(db, input.date);
 
@@ -23,26 +28,26 @@ export async function upsertDailyRecord(db: any, input: UpsertDailyRecordInput):
   return created;
 }
 
-export async function getRecordByDate(db: any, date: string): Promise<DailyRecord | null> {
+export async function getRecordByDate(db: RecordDb, date: string): Promise<DailyRecord | null> {
   const rows = await db.select().from(dailyRecords).where(eq(dailyRecords.date, date));
   return rows[0] ?? null;
 }
 
-export async function listRecordsDesc(db: any): Promise<DailyRecord[]> {
+export async function listRecordsDesc(db: RecordDb): Promise<DailyRecord[]> {
   return db.select().from(dailyRecords).orderBy(desc(dailyRecords.date));
 }
 
 export async function getConditionAverageBy(
-  db: any,
+  db: RecordDb,
   column: 'caffeine' | 'exercise' | 'alcohol'
 ): Promise<{ withActivity: number | null; without: number | null }> {
   const field = dailyRecords[column];
 
-  const withRows: DailyRecord[] = await db
+  const withRows = await db
     .select()
     .from(dailyRecords)
     .where(ne(field, 'none'));
-  const withoutRows: DailyRecord[] = await db
+  const withoutRows = await db
     .select()
     .from(dailyRecords)
     .where(eq(field, 'none'));
@@ -54,12 +59,12 @@ export async function getConditionAverageBy(
 }
 
 export async function getSleepConditionPoints(
-  db: any
+  db: RecordDb
 ): Promise<{ sleepMinutes: number; condition: number }[]> {
   const rows = await db
     .select()
     .from(dailyRecords)
     .where(and(isNotNull(dailyRecords.sleepMinutes)));
 
-  return rows.map((r: DailyRecord) => ({ sleepMinutes: r.sleepMinutes as number, condition: r.condition }));
+  return rows.map((r) => ({ sleepMinutes: r.sleepMinutes as number, condition: r.condition }));
 }
