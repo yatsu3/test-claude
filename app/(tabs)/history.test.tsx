@@ -46,6 +46,24 @@ describe('HistoryScreen', () => {
     });
   });
 
+  it('shows condition as n/5 and activity indicators (dimmed when none) on each row', async () => {
+    mockList.mockResolvedValue([
+      { id: 2, date: '2026-10-08', condition: 4, caffeine: 'morning', exercise: 'none', alcohol: 'heavy' },
+    ]);
+    await render(<HistoryScreen />);
+    expect(await screen.findByText('コンディション: 4/5')).toBeTruthy();
+
+    const caffeine = screen.getByLabelText('カフェインあり');
+    const exercise = screen.getByLabelText('運動なし');
+    const alcohol = screen.getByLabelText('アルコールあり');
+    expect(caffeine).toHaveTextContent('☕');
+    expect(exercise).toHaveTextContent('🏃');
+    expect(alcohol).toHaveTextContent('🍺');
+    expect(caffeine).toHaveStyle({ opacity: 1 });
+    expect(exercise).toHaveStyle({ opacity: 0.2 });
+    expect(alcohol).toHaveStyle({ opacity: 1 });
+  });
+
   it('navigates to the edit route when a row is tapped', async () => {
     mockList.mockResolvedValue([
       { id: 1, date: '2026-10-07', condition: 2, caffeine: 'none', exercise: 'morning', alcohol: 'moderate' },

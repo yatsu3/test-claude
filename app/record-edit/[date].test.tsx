@@ -9,10 +9,14 @@ jest.mock('../../src/db/client', () => ({ db: {} }));
 jest.mock('../../src/db/recordRepository', () => ({
   getRecordByDate: (...args: unknown[]) => mockGet(...args),
 }));
-jest.mock('expo-router', () => ({
-  useLocalSearchParams: () => ({ date: '2026-10-07' }),
-  useRouter: () => ({ back: mockBack }),
-}));
+jest.mock('expo-router', () => {
+  const { Text } = require('react-native');
+  return {
+    useLocalSearchParams: () => ({ date: '2026-10-07' }),
+    useRouter: () => ({ back: mockBack }),
+    Stack: { Screen: ({ options }: any) => <Text>{`title:${options?.title}`}</Text> },
+  };
+});
 jest.mock('../../src/features/record/RecordForm', () => {
   const { Text, Pressable } = require('react-native');
   return {
@@ -35,6 +39,12 @@ describe('RecordEditScreen', () => {
     await render(<RecordEditScreen />);
     await waitFor(() => expect(screen.getByText('form:2026-10-07:2')).toBeTruthy());
     expect(mockGet).toHaveBeenCalledWith({}, '2026-10-07');
+  });
+
+  it('sets the header title to the date being edited', async () => {
+    mockGet.mockResolvedValue({ id: 1, date: '2026-10-07', condition: 2 });
+    await render(<RecordEditScreen />);
+    expect(await screen.findByText('title:2026-10-07 の記録')).toBeTruthy();
   });
 
   it('goes back after saving', async () => {

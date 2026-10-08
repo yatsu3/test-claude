@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { db } from '../../src/db/client';
 import { getRecordByDate } from '../../src/db/recordRepository';
 import { RecordForm } from '../../src/features/record/RecordForm';
@@ -40,13 +40,17 @@ export default function RecordEditScreen() {
     };
   }, [date, attempt]);
 
+  // Header title shows which date is being edited.
+  const header = date ? <Stack.Screen options={{ title: `${date} の記録` }} /> : null;
+
   if (!loaded || !date) {
-    return null;
+    return header;
   }
 
   if (loadFailed) {
     return (
       <ScrollView>
+        {header}
         <Text style={{ color: '#c00', padding: 16 }}>記録の読み込みに失敗しました</Text>
         <Pressable accessibilityRole="button" onPress={() => setAttempt((n) => n + 1)} style={{ padding: 16 }}>
           <Text>再読み込み</Text>
@@ -57,6 +61,7 @@ export default function RecordEditScreen() {
 
   return (
     <ScrollView>
+      {header}
       <RecordForm date={date} initialRecord={record} onSaved={() => router.back()} />
     </ScrollView>
   );

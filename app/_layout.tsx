@@ -5,6 +5,10 @@ import * as Notifications from 'expo-notifications';
 import { useMigrations } from 'drizzle-orm/expo-sqlite/migrator';
 import { db } from '../src/db/client';
 import migrations from '../src/db/migrations/migrations';
+import { configureNotificationHandler } from '../src/notifications/reminder';
+
+// Show reminders even while the app is in the foreground.
+configureNotificationHandler();
 
 export default function RootLayout() {
   const { success, error } = useMigrations(db, migrations);
@@ -40,6 +44,10 @@ export default function RootLayout() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="settings" options={{ headerShown: true, title: '設定' }} />
+      <Stack.Screen
+        name="record-edit/[date]"
+        options={{ headerShown: true, title: '記録の編集', headerBackTitle: '戻る' }}
+      />
     </Stack>
   );
 }

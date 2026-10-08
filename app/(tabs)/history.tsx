@@ -5,6 +5,12 @@ import { db } from '../../src/db/client';
 import { listRecordsDesc } from '../../src/db/recordRepository';
 import type { DailyRecord } from '../../src/db/schema';
 
+const ACTIVITY_INDICATORS: { key: 'caffeine' | 'exercise' | 'alcohol'; icon: string; label: string }[] = [
+  { key: 'caffeine', icon: '☕', label: 'カフェイン' },
+  { key: 'exercise', icon: '🏃', label: '運動' },
+  { key: 'alcohol', icon: '🍺', label: 'アルコール' },
+];
+
 export default function HistoryScreen() {
   const router = useRouter();
   const [records, setRecords] = useState<DailyRecord[] | null>(null);
@@ -65,7 +71,21 @@ export default function HistoryScreen() {
           }}
         >
           <Text>{item.date}</Text>
-          <Text>コンディション: {item.condition}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4 }}>
+            <Text>{`コンディション: ${item.condition}/5`}</Text>
+            {ACTIVITY_INDICATORS.map(({ key, icon, label }) => {
+              const active = item[key] !== 'none';
+              return (
+                <Text
+                  key={key}
+                  accessibilityLabel={`${label}${active ? 'あり' : 'なし'}`}
+                  style={{ opacity: active ? 1 : 0.2 }}
+                >
+                  {icon}
+                </Text>
+              );
+            })}
+          </View>
         </Pressable>
       )}
     />
