@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { AppState, Pressable, Text, View } from 'react-native';
+import { AppState, ScrollView, Text, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import {
@@ -11,6 +11,8 @@ import {
   DEFAULT_REMINDER_MINUTE,
 } from '../src/notifications/reminder';
 import { getReminderPreference, saveReminderPreference } from '../src/settings/preferences';
+import { Button } from '../src/ui/Button';
+import { cardStyle, colors, font, radius, spacing, TOUCH_MIN } from '../src/ui/theme';
 
 function formatTime(hour: number, minute: number): string {
   return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
@@ -223,41 +225,79 @@ export default function SettingsScreen() {
   pickerValue.setHours(hour, minute, 0, 0);
 
   return (
-    <View style={{ padding: 16 }}>
+    <ScrollView
+      style={{ backgroundColor: colors.background }}
+      contentContainerStyle={{ padding: spacing.lg, gap: spacing.lg }}
+    >
       {permissionOff && (
-        <View style={{ marginBottom: 12 }}>
-          <Text style={{ color: '#b00', fontWeight: 'bold' }}>通知がオフになっています</Text>
-          <Text style={{ color: '#b00' }}>iOSの設定アプリでこのアプリの通知を許可してください</Text>
+        <View
+          accessibilityRole="alert"
+          style={{
+            backgroundColor: colors.errorSoft,
+            borderRadius: radius.md,
+            padding: spacing.md,
+            gap: spacing.xs,
+          }}
+        >
+          <Text style={{ color: colors.error, fontWeight: '700', fontSize: 15 }}>通知がオフになっています</Text>
+          <Text style={{ color: colors.error }}>iOSの設定アプリでこのアプリの通知を許可してください</Text>
         </View>
       )}
-      <Text style={{ marginBottom: 8 }}>リマインド時刻: {formatTime(hour, minute)}</Text>
-      <DateTimePicker
-        value={pickerValue}
-        mode="time"
-        onChange={(_event, date) => {
-          handleTimeChange(date);
-        }}
-      />
-      {notificationId ? (
-        <>
-          <Text style={{ marginVertical: 12 }}>{`${formatTime(hour, minute)} にリマインドします`}</Text>
-          <Pressable onPress={handleDisable}>
-            <Text>リマインドを無効にする</Text>
-          </Pressable>
-        </>
-      ) : (
-        <>
-          <Pressable onPress={handleEnable} style={{ marginTop: 12 }}>
-            <Text>リマインドを有効にする</Text>
-          </Pressable>
-          {permissionDenied && (
-            <Text style={{ marginTop: 12, color: '#b00' }}>
-              通知が許可されていないため、リマインドをオンにできません
-            </Text>
-          )}
-        </>
-      )}
-      {error && <Text style={{ marginTop: 12, color: '#b00' }}>{error}</Text>}
-    </View>
+
+      <View style={cardStyle}>
+        <Text accessibilityRole="header" style={font.heading}>
+          記録リマインド
+        </Text>
+        <Text style={{ ...font.caption, marginTop: spacing.xs }}>毎日決まった時刻に記録を促す通知を送ります</Text>
+
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginTop: spacing.lg,
+            minHeight: TOUCH_MIN,
+          }}
+        >
+          <Text style={font.body}>リマインド時刻: {formatTime(hour, minute)}</Text>
+          <DateTimePicker
+            value={pickerValue}
+            mode="time"
+            accentColor={colors.primary}
+            onChange={(_event, date) => {
+              handleTimeChange(date);
+            }}
+          />
+        </View>
+
+        <View style={{ height: 1, backgroundColor: colors.border, marginVertical: spacing.lg }} />
+
+        {notificationId ? (
+          <View style={{ gap: spacing.md }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.success }} />
+              <Text style={{ ...font.body, color: colors.success, fontWeight: '600' }}>
+                {`${formatTime(hour, minute)} にリマインドします`}
+              </Text>
+            </View>
+            <Button title="リマインドを無効にする" variant="danger" onPress={handleDisable} />
+          </View>
+        ) : (
+          <View style={{ gap: spacing.md }}>
+            <Button title="リマインドを有効にする" onPress={handleEnable} />
+            {permissionDenied && (
+              <Text accessibilityRole="alert" style={{ color: colors.error }}>
+                通知が許可されていないため、リマインドをオンにできません
+              </Text>
+            )}
+          </View>
+        )}
+        {error && (
+          <Text accessibilityRole="alert" style={{ marginTop: spacing.md, color: colors.error }}>
+            {error}
+          </Text>
+        )}
+      </View>
+    </ScrollView>
   );
 }

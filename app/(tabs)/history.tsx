@@ -4,12 +4,24 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { db } from '../../src/db/client';
 import { listRecordsDesc } from '../../src/db/recordRepository';
 import type { DailyRecord } from '../../src/db/schema';
+import { StatusView } from '../../src/ui/StatusView';
+import { cardStyle, colors, conditionColors, font, radius, spacing } from '../../src/ui/theme';
 
-const ACTIVITY_INDICATORS: { key: 'caffeine' | 'exercise' | 'alcohol'; icon: string; label: string }[] = [
-  { key: 'caffeine', icon: '☕', label: 'カフェイン' },
-  { key: 'exercise', icon: '🏃', label: '運動' },
-  { key: 'alcohol', icon: '🍺', label: 'アルコール' },
+const ACTIVITY_INDICATORS: { key: 'caffeine' | 'exercise' | 'alcohol'; label: string }[] = [
+  { key: 'caffeine', label: 'カフェイン' },
+  { key: 'exercise', label: '運動' },
+  { key: 'alcohol', label: 'アルコール' },
 ];
+
+const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土'];
+
+const weekdayOf = (iso: string) => {
+  const [year, month, day] = iso.split('-').map(Number);
+  return WEEKDAYS[new Date(year, month - 1, day).getDay()];
+};
+
+const formatSleep = (minutes: number | null | undefined) =>
+  minutes == null ? null : `睡眠 ${Math.floor(minutes / 60)}時間${minutes % 60}分`;
 
 export default function HistoryScreen() {
   const router = useRouter();
@@ -38,11 +50,7 @@ export default function HistoryScreen() {
   );
 
   if (loadFailed) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <Text style={{ color: '#c00' }}>記録の読み込みに失敗しました</Text>
-      </View>
-    );
+    return <StatusView tone="error" title="記録の読み込みに失敗しました" />;
   }
 
   if (records === null) {
@@ -51,9 +59,10 @@ export default function HistoryScreen() {
 
   if (records.length === 0) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <Text>まだ記録がありません</Text>
-      </View>
+      <StatusView
+        title="まだ記録がありません"
+        description="「記録」タブから今日のコンディションを記録しましょう"
+      />
     );
   }
 
@@ -61,33 +70,87 @@ export default function HistoryScreen() {
     <FlatList
       data={records}
       keyExtractor={(item) => item.date}
-      renderItem={({ item }) => (
-        <Pressable
-          onPress={() => router.push(`/record-edit/${item.date}`)}
-          style={{
-            padding: 16,
-            borderBottomWidth: 1,
-            borderBottomColor: '#eee',
-          }}
-        >
-          <Text>{item.date}</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4 }}>
-            <Text>{`コンディション: ${item.condition}/5`}</Text>
-            {ACTIVITY_INDICATORS.map(({ key, icon, label }) => {
-              const active = item[key] !== 'none';
-              return (
-                <Text
-                  key={key}
-                  accessibilityLabel={`${label}${active ? 'あり' : 'なし'}`}
-                  style={{ opacity: active ? 1 : 0.2 }}
-                >
-                  {icon}
-                </Text>
-              );
+      style={{ backgroundColor: colors.background }}
+      contentContainerStyle={{ padding: spacing.lg, gap: spacing.md }}
+      renderItem={({ item }) => {
+        const sleep = formatSleep(item.sleepMinutes);
+        return (
+          <Pressable
+            onPress={() => router.push(`/record-edit/${item.date}`)}
+            accessibilityRole="button"
+            accessibilityHint="記録を編集します"
+            style={({ pressed }) => ({
+              ...cardStyle,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: spacing.md,
+              backgroundColor: pressed ? colors.surfaceMuted : colors.surface,
             })}
-          </View>
-        </Pressable>
-      )}
+          >
+            <View
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: radius.md,
+                justifyContent: 'center',
+                alignItems: 'center',
+                backgroundColor: conditionColors[item.condition] ?? colors.textMuted,
+              }}
+            >
+              <Text style={{ color: colors.onPrimary, fontSize: 20, fontWeight: '700' }}>{item.condition}</Text>
+            </View>
+            <View style={{ flex: 1, gap: spacing.xs }}>
+              <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: spacing.xs }}>
+                <Text style={font.heading}>{item.date}</Text>
+                <Text style={font.caption}>{`（${weekdayOf(item.date)}）`}</Text>
+              </View>
+              <Text style={font.caption}>
+                {`コンディション: ${item.condition}/5`}
+                {sleep ? `  ・  ${sleep}` : ''}
+              </Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginTop: 2 }}>
+                {ACTIVITY_INDICATORS.map(({ key, label }) => {
+                  const active = item[key] !== 'none';
+                  return (
+                    <Text
+                      key={key}
+                      accessibilityLabel={`${label}${active ? 'あり' : 'なし'}`}
+                      style={{
+                        fontSize: 12,
+                        fontWeight: '600',
+                        overflow: 'hidden',
+                        borderRadius: radius.pill,
+                        borderWidth: 1,
+                        paddingHorizontal: spacing.sm,
+                        paddingVertical: 2,
+                        color: active ? colors.primary : colors.textMuted,
+                        backgroundColor: active ? colors.primarySoft : 'transparent',
+                        borderColor: active ? colors.primarySoft : colors.border,
+                        textDecorationLine: active ? 'none' : 'line-through',
+                      }}
+                    >
+                      {label}
+                    </Text>
+                  );
+                })}
+              </View>
+            </View>
+            <View
+              accessibilityElementsHidden
+              importantForAccessibility="no"
+              style={{
+                width: 9,
+                height: 9,
+                borderTopWidth: 2,
+                borderRightWidth: 2,
+                borderColor: colors.textMuted,
+                transform: [{ rotate: '45deg' }],
+                marginRight: spacing.xs,
+              }}
+            />
+          </Pressable>
+        );
+      }}
     />
   );
 }

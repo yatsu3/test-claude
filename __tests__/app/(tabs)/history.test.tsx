@@ -46,7 +46,7 @@ describe('HistoryScreen', () => {
     });
   });
 
-  it('shows condition as n/5 and activity indicators (dimmed when none) on each row', async () => {
+  it('shows condition as n/5 and activity chips (struck through when none) on each row', async () => {
     mockList.mockResolvedValue([
       { id: 2, date: '2026-10-08', condition: 4, caffeine: 'morning', exercise: 'none', alcohol: 'heavy' },
     ]);
@@ -56,12 +56,12 @@ describe('HistoryScreen', () => {
     const caffeine = screen.getByLabelText('カフェインあり');
     const exercise = screen.getByLabelText('運動なし');
     const alcohol = screen.getByLabelText('アルコールあり');
-    expect(caffeine).toHaveTextContent('☕');
-    expect(exercise).toHaveTextContent('🏃');
-    expect(alcohol).toHaveTextContent('🍺');
-    expect(caffeine).toHaveStyle({ opacity: 1 });
-    expect(exercise).toHaveStyle({ opacity: 0.2 });
-    expect(alcohol).toHaveStyle({ opacity: 1 });
+    expect(caffeine).toHaveTextContent('カフェイン');
+    expect(exercise).toHaveTextContent('運動');
+    expect(alcohol).toHaveTextContent('アルコール');
+    expect(caffeine).toHaveStyle({ textDecorationLine: 'none' });
+    expect(exercise).toHaveStyle({ textDecorationLine: 'line-through' });
+    expect(alcohol).toHaveStyle({ textDecorationLine: 'none' });
   });
 
   it('navigates to the edit route when a row is tapped', async () => {

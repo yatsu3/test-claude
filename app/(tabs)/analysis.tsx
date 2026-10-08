@@ -4,6 +4,8 @@ import { useFocusEffect } from 'expo-router';
 import { CartesianChart, Scatter, Bar } from 'victory-native';
 import { db } from '../../src/db/client';
 import { getSleepConditionPoints, getConditionAverageBy } from '../../src/db/recordRepository';
+import { StatusView } from '../../src/ui/StatusView';
+import { cardStyle, colors, font, spacing } from '../../src/ui/theme';
 
 const MIN_RECORDS_FOR_ANALYSIS = 5;
 
@@ -56,11 +58,7 @@ export default function AnalysisScreen() {
   );
 
   if (loadFailed) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <Text style={{ color: '#c00' }}>記録の読み込みに失敗しました</Text>
-      </View>
-    );
+    return <StatusView tone="error" title="記録の読み込みに失敗しました" />;
   }
 
   if (!data) {
@@ -69,9 +67,10 @@ export default function AnalysisScreen() {
 
   if (data.points.length < MIN_RECORDS_FOR_ANALYSIS) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 16 }}>
-        <Text>もう少しデータを集めましょう</Text>
-      </View>
+      <StatusView
+        title="もう少しデータを集めましょう"
+        description={`${MIN_RECORDS_FOR_ANALYSIS}日分以上の記録で分析できます（現在 ${data.points.length}日分）`}
+      />
     );
   }
 
@@ -89,30 +88,53 @@ export default function AnalysisScreen() {
   ];
 
   return (
-    <ScrollView style={{ padding: 16 }}>
-      <Text style={{ fontSize: 18, marginBottom: 8 }}>睡眠時間とコンディション</Text>
-      <View style={{ height: 240, marginBottom: 24 }}>
-        <CartesianChart
-          data={data.points}
-          xKey="sleepMinutes"
-          yKeys={['condition']}
-          domain={{ y: SCATTER_Y_DOMAIN }}
-          domainPadding={{ top: 8, bottom: 8, left: 8, right: 8 }}
+    <ScrollView
+      style={{ backgroundColor: colors.background }}
+      contentContainerStyle={{ padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxl }}
+    >
+      <View style={cardStyle}>
+        <Text accessibilityRole="header" style={font.heading}>
+          睡眠時間とコンディション
+        </Text>
+        <Text style={{ ...font.caption, marginTop: spacing.xs, marginBottom: spacing.md }}>
+          横軸: 睡眠時間（分） / 縦軸: コンディション（1〜5）
+        </Text>
+        <View
+          style={{ height: 240 }}
+          accessible
+          accessibilityLabel={`睡眠時間とコンディションの散布図、${data.points.length}件`}
         >
-          {({ points: chartPoints }) => <Scatter points={chartPoints.condition} color="#333" radius={4} />}
-        </CartesianChart>
+          <CartesianChart
+            data={data.points}
+            xKey="sleepMinutes"
+            yKeys={['condition']}
+            domain={{ y: SCATTER_Y_DOMAIN }}
+            domainPadding={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            {({ points: chartPoints }) => (
+              <Scatter points={chartPoints.condition} color={colors.primary} opacity={0.7} radius={5} />
+            )}
+          </CartesianChart>
+        </View>
       </View>
-      <Text style={{ color: '#666', marginTop: -16, marginBottom: 24 }}>
-        横軸: 睡眠時間（分） / 縦軸: コンディション（1〜5）
-      </Text>
 
       {comparisons.map(({ label, avg }) => {
         const bars = comparisonData(avg);
         return (
-          <View key={label} style={{ marginBottom: 24 }}>
-            <Text style={{ fontSize: 18, marginBottom: 8 }}>{label}</Text>
+          <View key={label} style={cardStyle}>
+            <Text accessibilityRole="header" style={font.heading}>
+              {label}
+            </Text>
+            <Text style={{ ...font.caption, marginTop: spacing.xs, marginBottom: spacing.md }}>
+              コンディション平均（0〜5）
+            </Text>
             {bars.length > 0 ? (
-              <View style={{ height: 200 }} testID={`chart-${label}`}>
+              <View
+                style={{ height: 180 }}
+                testID={`chart-${label}`}
+                accessible
+                accessibilityLabel={`${label}あり ${formatAverage(avg.withActivity)}、なし ${formatAverage(avg.without)}`}
+              >
                 <CartesianChart
                   data={bars}
                   xKey="slot"
@@ -120,19 +142,26 @@ export default function AnalysisScreen() {
                   domain={{ x: BAR_X_DOMAIN, y: BAR_Y_DOMAIN }}
                 >
                   {({ points: chartPoints, chartBounds }) => (
-                    <Bar points={chartPoints.value} chartBounds={chartBounds} barCount={2} color="#333" />
+                    <Bar
+                      points={chartPoints.value}
+                      chartBounds={chartBounds}
+                      barCount={2}
+                      color={colors.primary}
+                      roundedCorners={{ topLeft: 6, topRight: 6 }}
+                    />
                   )}
                 </CartesianChart>
               </View>
             ) : null}
-            <View style={{ flexDirection: 'row', marginTop: 4 }}>
-              <Text style={{ flex: 1, textAlign: 'center' }}>{`あり: ${formatAverage(avg.withActivity)}`}</Text>
-              <Text style={{ flex: 1, textAlign: 'center' }}>{`なし: ${formatAverage(avg.without)}`}</Text>
+            <View style={{ flexDirection: 'row', marginTop: spacing.sm }}>
+              <Text style={averageStyle}>{`あり: ${formatAverage(avg.withActivity)}`}</Text>
+              <Text style={averageStyle}>{`なし: ${formatAverage(avg.without)}`}</Text>
             </View>
-            <Text style={{ color: '#666', textAlign: 'center', marginTop: 2 }}>コンディション平均（0〜5）</Text>
           </View>
         );
       })}
     </ScrollView>
   );
 }
+
+const averageStyle = { ...font.body, flex: 1, textAlign: 'center' as const, fontWeight: '600' as const };

@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { Pressable, ScrollView, Text } from 'react-native';
+import { ScrollView } from 'react-native';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { db } from '../../src/db/client';
 import { getRecordByDate } from '../../src/db/recordRepository';
 import { RecordForm } from '../../src/features/record/RecordForm';
 import type { DailyRecord } from '../../src/db/schema';
+import { StatusView } from '../../src/ui/StatusView';
+import { colors, spacing } from '../../src/ui/theme';
 
 export default function RecordEditScreen() {
   const { date } = useLocalSearchParams<{ date: string }>();
@@ -49,18 +51,25 @@ export default function RecordEditScreen() {
 
   if (loadFailed) {
     return (
-      <ScrollView>
+      <>
         {header}
-        <Text style={{ color: '#c00', padding: 16 }}>記録の読み込みに失敗しました</Text>
-        <Pressable accessibilityRole="button" onPress={() => setAttempt((n) => n + 1)} style={{ padding: 16 }}>
-          <Text>再読み込み</Text>
-        </Pressable>
-      </ScrollView>
+        <StatusView
+          tone="error"
+          title="記録の読み込みに失敗しました"
+          actionLabel="再読み込み"
+          onAction={() => setAttempt((n) => n + 1)}
+        />
+      </>
     );
   }
 
   return (
-    <ScrollView>
+    <ScrollView
+      style={{ backgroundColor: colors.background }}
+      contentContainerStyle={{ paddingBottom: spacing.xxl }}
+      keyboardShouldPersistTaps="handled"
+      automaticallyAdjustKeyboardInsets
+    >
       {header}
       <RecordForm date={date} initialRecord={record} onSaved={() => router.back()} />
     </ScrollView>

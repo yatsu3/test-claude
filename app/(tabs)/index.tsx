@@ -1,12 +1,14 @@
 // app/(tabs)/index.tsx
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { AppState, Pressable, ScrollView, Text } from 'react-native';
+import { AppState, ScrollView, Text, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { db } from '../../src/db/client';
 import { getRecordByDate } from '../../src/db/recordRepository';
 import { formatDateISO } from '../../src/lib/date';
 import { RecordForm } from '../../src/features/record/RecordForm';
 import type { DailyRecord } from '../../src/db/schema';
+import { StatusView } from '../../src/ui/StatusView';
+import { colors, font, radius, spacing } from '../../src/ui/theme';
 
 const SAVED_MESSAGE_MS = 2000;
 
@@ -110,24 +112,37 @@ export default function TodayScreen() {
   }
 
   if (loadFailed) {
-    return (
-      <ScrollView>
-        <Text style={{ color: '#c00', padding: 16 }}>記録の読み込みに失敗しました</Text>
-        <Pressable accessibilityRole="button" onPress={reload} style={{ padding: 16 }}>
-          <Text>再読み込み</Text>
-        </Pressable>
-      </ScrollView>
-    );
+    return <StatusView tone="error" title="記録の読み込みに失敗しました" actionLabel="再読み込み" onAction={reload} />;
   }
 
   return (
-    <ScrollView>
-      <Text style={{ fontSize: 18, fontWeight: 'bold', paddingHorizontal: 16, paddingTop: 16 }}>
-        {`${today} の記録`}
-      </Text>
-      {showSaved ? (
-        <Text style={{ color: '#080', paddingHorizontal: 16, paddingTop: 8 }}>保存しました</Text>
-      ) : null}
+    <ScrollView
+      style={{ backgroundColor: colors.background }}
+      contentContainerStyle={{ paddingBottom: spacing.xxl }}
+      keyboardShouldPersistTaps="handled"
+      automaticallyAdjustKeyboardInsets
+    >
+      <View style={{ paddingHorizontal: spacing.lg, paddingTop: spacing.lg }}>
+        <Text style={font.caption}>今日のコンディションを記録しましょう</Text>
+        <Text accessibilityRole="header" style={{ ...font.title, marginTop: spacing.xs }}>
+          {`${today} の記録`}
+        </Text>
+        {showSaved ? (
+          <View
+            accessibilityLiveRegion="polite"
+            style={{
+              alignSelf: 'flex-start',
+              marginTop: spacing.sm,
+              backgroundColor: colors.successSoft,
+              borderRadius: radius.pill,
+              paddingHorizontal: spacing.md,
+              paddingVertical: spacing.xs,
+            }}
+          >
+            <Text style={{ color: colors.success, fontWeight: '600' }}>保存しました</Text>
+          </View>
+        ) : null}
+      </View>
       <RecordForm key={formKey ?? today} date={today} initialRecord={initialRecord} onSaved={handleSaved} />
     </ScrollView>
   );
